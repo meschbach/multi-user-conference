@@ -38,6 +38,7 @@ class ClientState extends EventEmitter {
 		this.client = new MultiUserConferenceClient(tracer);
 		this.state = States.Initial;
 		this.output = [];
+		this.isAuthenticated = false;
 	}
 
 	_updateState(state){
@@ -70,7 +71,7 @@ class ClientState extends EventEmitter {
 	input(value){
 		switch (this.state){
 			case States.PreAuth:
-				this._doAuthenticate(value);
+				this.doAuthenticate(value);
 				this._updateState(States.Authenticating);
 				break;
 			case States.Online:
@@ -99,16 +100,20 @@ class ClientState extends EventEmitter {
 		}
 	}
 
-	async _doAuthenticate(userName){
+	async doAuthenticate(userName){
 		try {
 			await this.client.register(userName);
 			this._updateState(States.Authenticated);
+			this.isAuthenticated = true;
 			const room = await this.client.loadRoom(this.client.currentRoom, new BrowserSpan());
 			this.emit(States.NewRoom, room);
 			this._updateState(States.Online);
+			return {ok: true};
 		}catch(e){
-			this.emit(States.Error, {source:this, message: e.toString()});
+			this.isAuthenticated = false;
+			this.emit(States.Error, {source:this, message: e.message});
 			this._updateState(States.PreAuth);
+			return {ok: false, error: e.message};
 		}
 	}
 }

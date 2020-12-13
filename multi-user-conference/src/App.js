@@ -4,6 +4,7 @@ import React, {useEffect,useState} from "react";
 import {InputPanel} from "./input";
 import {newGameState, States} from "./game-state";
 import EventEmitter from "eventemitter3";
+import {AuthScreen} from "./AuthScreen";
 
 const controller = newGameState();
 class OutputObserver extends EventEmitter {
@@ -46,13 +47,24 @@ const log = new OutputObserver();
 log.watch(controller);
 
 function App() {
+    const [isAuthenticated, setAuthenticated] = useState(controller.isAuthenticated);
     useEffect(() => {
+        const listener = () => {
+            setAuthenticated(controller.isAuthenticated);
+        }
+        controller.on(States.OnChange, listener);
         controller.digest();
+        return () => controller.off(States.OnChange, listener);
     });
 
     const onEval = (value) => {
         controller.input(value);
     };
+
+    if( !isAuthenticated ){
+        return (<AuthScreen controller={controller}/>);
+    }
+
   return (
       <div className='frame'>
           <div className='frame-input'>
