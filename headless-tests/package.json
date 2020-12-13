@@ -1,0 +1,15 @@
+{
+  "name": "headless-tests",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "chai": "^4.2.0",
+    "eventemitter3": "^4.0.7",
+    "faker": "^5.1.0",
+    "jaeger-client": "^3.18.1",
+    "junk-bucket": "^1.6.0",
+    "mocha": "^8.2.1",
+    "ws": "^7.4.0"
+  }
+}

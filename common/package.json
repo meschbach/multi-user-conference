@@ -1,0 +1,10 @@
+{
+  "name": "muc-common",
+  "version": "1.0.0",
+  "description": "Multiuser Conference Common Library",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "junk-bucket": "^1.6.0"
+  }
+}
