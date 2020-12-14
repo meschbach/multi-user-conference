@@ -93,11 +93,16 @@ class ClientState extends EventEmitter {
 			case "go":
 				const roomID = await this.client.exitRoom(tokens[1], span);
 				const room = await this.client.loadRoom(roomID, span);
-				this.emit(States.NewRoom, room);
+				this._updateRoom(room);
 				break;
 			default:
 				this.emit(States.Error, {source:this, message: "Unknown command: "+ tokens[0]});
 		}
+	}
+
+	_updateRoom(room){
+		this.currentRoom = room;
+		this.emit(States.NewRoom, room);
 	}
 
 	async doAuthenticate(userName){
@@ -106,7 +111,7 @@ class ClientState extends EventEmitter {
 			this._updateState(States.Authenticated);
 			this.isAuthenticated = true;
 			const room = await this.client.loadRoom(this.client.currentRoom, new BrowserSpan());
-			this.emit(States.NewRoom, room);
+			this._updateRoom(room);
 			this._updateState(States.Online);
 			return {ok: true};
 		}catch(e){

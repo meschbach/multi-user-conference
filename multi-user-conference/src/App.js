@@ -5,6 +5,8 @@ import {InputPanel} from "./input";
 import {newGameState, States} from "./game-state";
 import EventEmitter from "eventemitter3";
 import {AuthScreen} from "./AuthScreen";
+import {RenderLog} from "./event-log";
+import {CurrentRoomView} from "./room-view";
 
 const controller = newGameState();
 class OutputObserver extends EventEmitter {
@@ -71,6 +73,7 @@ function App() {
               <InputPanel onEvaluate={onEval}/>
           </div>
           <div className='frame-output'>
+              <CurrentRoomView playerState={controller}/>
               <OutputPane log={log}/>
           </div>
       </div>
@@ -106,49 +109,6 @@ function OutputPane({log}){
     }
 
     return (<RenderLog log={log}/>);
-}
-
-function RenderLog({log}){
-    const [output,setOutput] = useState(log.messages);
-
-    useEffect(() => {
-        const onUpdate = () => {
-            setOutput([].concat(log.messages));
-        };
-        log.on("update", onUpdate);
-        return () => {
-            log.off("update", onUpdate);
-        }
-    }, [log]);
-
-    function formatMessage(o){
-        switch (o.type){
-            case States.OnChange:
-                return o.from.toString() + " -> " + o.to.toString();
-            case States.Error:
-                return "ERROR: " + o.message;
-            case States.NewRoom:
-                return (<RoomView room={o.room}/>);
-            default:
-                return JSON.stringify(o);
-        }
-    }
-
-    return (<ul>
-        {output.map((o) => <li key={o.id}>{formatMessage(o)}</li> )}
-    </ul>);
-}
-
-function RoomView({room}){
-    const {name,description,exits} = room;
-    return (<div>
-        <h3>{name}</h3>
-        <p>{description}</p>
-        <div>
-            <h4>Exits</h4>
-            <p>{exits.map(exit => <span key={exit}>{exit}</span>)}</p>
-        </div>
-    </div>)
 }
 
 export default App;

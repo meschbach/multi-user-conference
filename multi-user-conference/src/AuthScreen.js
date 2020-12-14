@@ -16,7 +16,6 @@ export function AuthScreen({controller}){
 	const attemptLogin = (name) => {
 		setState(States.Authenticating);
 		controller.doAuthenticate(name).then((result) => {
-			console.log(result);
 			if( result.ok ){
 				setState(States.LoggedIn);
 			} else {
