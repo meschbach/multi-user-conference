@@ -5,10 +5,12 @@ export class OutputObserver extends EventEmitter {
 	constructor() {
 		super();
 		this.messages = [];
+		this.id = 0;
 	}
 
 	_push(obj) {
-		this.messages.unshift(obj);
+		const change = Object.freeze(Object.assign({}, obj, {id: this.id++}))
+		this.messages.unshift(change);
 		this.emit("update");
 	}
 
@@ -25,13 +27,13 @@ export class OutputObserver extends EventEmitter {
 				return;
 			}
 			this._push({
-				id: Date.now(), type: States.NewRoom,
+				when: Date.now(), type: States.NewRoom,
 				room
 			});
 		});
 		controller.on(States.Error, ({message}) => {
 			this._push({
-				id: Date.now(), type: States.Error,
+				when: Date.now(), type: States.Error,
 				message
 			});
 		});
