@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import './AuthScreen.css';
 
 const States = Object.freeze({
@@ -13,20 +13,30 @@ export function AuthScreen({controller}){
 	}
 	const [state,setState] = useState(States.Init);
 	const [message, setMessage] = useState(null);
+	let changeState = false; //TODO: Design pressures push the state into being extracted.
 
 	const attemptLogin = (name) => {
 		setState(States.Authenticating);
 		controller.doAuthenticate(name).then((result) => {
 			if( result.ok ){
-				setState(States.LoggedIn);
+				if( changeState) { setState(States.LoggedIn); }
 			} else {
-				setMessage(result.error);
-				setState(States.Init);
+				if( changeState ){
+					setMessage(result.error);
+					setState(States.Init);
+				}
 			}
 		}, (error) => {
-			setState(States.Init);
+			if( changeState ){
+				setState(States.Init);
+			}
 		});
 	};
+
+	useEffect(() =>{
+		changeState = true;
+		return () => { changeState = false; }
+	})
 
 	return (<div className='auth-screen'>
 		<h3>Log In</h3>
