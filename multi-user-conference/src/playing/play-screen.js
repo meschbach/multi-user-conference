@@ -1,4 +1,4 @@
-import {InputPanel} from "../input";
+import {InputPanel} from "./input";
 import {CurrentRoomView} from "./room-view";
 import {RenderLog} from "./event-log";
 import React from "react";
