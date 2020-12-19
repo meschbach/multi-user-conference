@@ -8,8 +8,18 @@
 
 .play-screen > main {
     flex: 10;
+    padding-right: 12em;
 }
 
 .play-screen > .game-log {
     flex: 2;
+}
+
+.play-screen > main > div > input {
+    width: 100%;
+}
+.play-screen > main > div > p {
+    padding: 0;
+    margin: 0;
+    font-size: 12pt;
 }
