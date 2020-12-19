@@ -1,12 +1,10 @@
 import './App.css';
 import React, {useEffect,useState} from "react";
 
-import {InputPanel} from "./input";
 import {newGameState, States} from "./game-state";
 import {AuthScreen} from "./AuthScreen";
-import {RenderLog} from "./event-log";
-import {CurrentRoomView} from "./room-view";
 import {OutputObserver} from "./output-observer";
+import {PlayScreen} from "./playing/play-screen";
 
 const controller = newGameState();
 const log = new OutputObserver();
@@ -30,18 +28,7 @@ function App() {
     if( !isAuthenticated ){
         return (<AuthScreen controller={controller}/>);
     }
-
-  return (
-      <div className='frame'>
-          <div className='frame-input'>
-              <InputPanel onEvaluate={onEval}/>
-          </div>
-          <div className='frame-output'>
-              <CurrentRoomView playerState={controller}/>
-              <RenderLog log={log}/>
-          </div>
-      </div>
-  );
+    return (<PlayScreen controller={controller} onEval={onEval} log={log}/>);
 }
 
 export default App;
