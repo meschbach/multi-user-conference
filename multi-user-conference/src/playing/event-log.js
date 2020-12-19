@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {States} from "./game-state";
+import {States} from "../game-state";
 
 export function RenderLog({log}){
 	const [output,setOutput] = useState(log.messages);

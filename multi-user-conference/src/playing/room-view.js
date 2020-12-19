@@ -1,6 +1,12 @@
 import React, {useState,useEffect} from "react";
-import {States} from "./game-state";
+import {States} from "../game-state";
 
+/**
+ * Container to extract details of the current room from the player state
+ * @param playerState current state of the world
+ * @returns {JSX.Element}
+ * @constructor
+ */
 export function CurrentRoomView({playerState}){
 	if( !playerState ) { throw new Error("playerState"); }
 	const [currentRoom,setCurrentRoom] = useState(playerState.currentRoom);
