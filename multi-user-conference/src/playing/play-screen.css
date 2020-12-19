@@ -1,0 +1,15 @@
+/*
+ * Play Screen
+ */
+.play-screen {
+    padding: 1em;
+    display: flex;
+}
+
+.play-screen > main {
+    flex: 10;
+}
+
+.play-screen > .game-log {
+    flex: 2;
+}

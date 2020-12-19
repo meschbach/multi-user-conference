@@ -2,6 +2,7 @@ import {InputPanel} from "./input";
 import {CurrentRoomView} from "./room-view";
 import {RenderLog} from "./event-log";
 import React from "react";
+import "./play-screen.css";
 
 /**
  * Root for user interaction screens.
@@ -14,17 +15,14 @@ import React from "react";
  */
 export function PlayScreen({onEval,controller, log}){
 	return (
-		<div className='frame'>
-			<div className='frame-input'>
+		<div className='play-screen'>
+			<main>
 				<InputPanel onEvaluate={onEval}/>
-			</div>
-			<div className='frame-output'>
-				<div className='room-view'>
-					<CurrentRoomView playerState={controller}/>
-				</div>
-				<div className='game-log'>
-					<RenderLog log={log}/>
-				</div>
+				<CurrentRoomView playerState={controller}/>
+			</main>
+			<div className='game-log'>
+				<h4>Event Log</h4>
+				<RenderLog log={log}/>
 			</div>
 		</div>
 	);
