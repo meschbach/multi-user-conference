@@ -95,6 +95,10 @@ class ClientState extends EventEmitter {
 				const room = await this.client.loadRoom(roomID, span);
 				this._updateRoom(room);
 				break;
+			case "say":
+				const whatToSay = input.substr(tokens[0].length + 1);
+				await this.client.sayInRoom( whatToSay, span);
+				break;
 			default:
 				this.emit(States.Error, {source:this, message: "Unknown command: "+ tokens[0]});
 		}

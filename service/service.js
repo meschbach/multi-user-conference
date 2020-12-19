@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const {Future, promiseEvent, delay} = require("junk-bucket/future");
 const {traceError, opentracing} = require("./tracing");
+const EventEmitter = require("events");
 
 async function traceSpan(fn, name, options, tracer, parent){
 	options.childOf = parent;
@@ -67,17 +68,46 @@ class MUCCoordinator {
 	}
 }
 
+const RoomEvents = {
+	ChatBroadcast: Symbol("room.chat.broadcast")
+}
+
+class LoadedRoom extends EventEmitter{
+	constructor({name,description,exits}) {
+		super();
+		this.name = name;
+		this.description = description;
+		this.exits = exits;
+	}
+
+	async broadcastChat(client, what, span){
+		const userName = client.userName;
+		if( !userName ){
+			throw new Error("client has not authenticated");
+		}
+		this.emit(RoomEvents.ChatBroadcast, {
+			from: userName,
+			what,
+			room: this,
+			span
+		});
+	}
+}
+
 class RoomsService {
 	constructor(tracer) {
 		this.tracer = tracer;
 		this.startRoom = 0;
 		this.rooms = [
-			{name: "Foyer", description:"You are at the entrance of the conference complex", exits: {in: 1}},
-			{name: "Lobby", description: "It's a lobby.  Peeps milling about", exits: {out: 0}}
+			new LoadedRoom({name: "Foyer", description:"You are at the entrance of the conference complex", exits: {in: 1}}),
+			new LoadedRoom({name: "Lobby", description: "It's a lobby.  Peeps milling about", exits: {out: 0}})
 		];
 	}
 
 	async load( id, parentSpan ){
+		if( !parentSpan ){
+			throw new Error("Context expected");
+		}
 		return await traceSpan(async (span) => {
 			if( id === undefined ){ throw new Error("bad id"); }
 			const room = this.rooms[id];
@@ -99,6 +129,23 @@ class MUCServiceConnection {
 	}
 
 	async _ingest(rawFrame){
+		const onRoomChatBroadcast = ({from,what, room, span}) => {
+			if( this.currentRoom.id === room.id ){
+				this._send({action: "room.chat.broadcast", from: from.userName, what}, span);
+			} else {
+				span.log({event: "not in room", user: this.userName, fromRoom: room.id, currentRoom: this.currentRoom.id});
+			}
+		}
+		const onChangeRoom = async (roomID, span) => {
+			if( this.currentRoom ) {
+				this.currentRoom.off(RoomEvents.ChatBroadcast, onRoomChatBroadcast);
+			}
+			const newRoom = await this.coordinator.rooms.load(roomID, span);
+			newRoom.on(RoomEvents.ChatBroadcast, onRoomChatBroadcast);
+			this.currentRoom = newRoom;
+			this._send({action: "room.current", room: newRoom}, span);
+		}
+
 		const message = JSON.parse(rawFrame);
 		const tracingContext = this.tracer.extract( opentracing.FORMAT_TEXT_MAP, message.trace );
 		const span = this.tracer.startSpan("muc.server.ws:" + message.action, {childOf: tracingContext});
@@ -108,7 +155,7 @@ class MUCServiceConnection {
 					const success = this.coordinator.register(message.userName, this);
 					if (success) {
 						this.userName = message.userName;
-						this.currentRoom = this.coordinator.rooms.startRoom;
+						await onChangeRoom(this.coordinator.rooms.startRoom, span);
 						this._send({action: "log.in", success: true, room: 0}, span);
 					} else {
 						this._send({action: "log.in", success: false, reason: "already taken"}, span);
@@ -126,8 +173,18 @@ class MUCServiceConnection {
 						this._send({action:"room.details", success:false, reason: "no such room " + id}, span);
 					}
  					break;
+				case "room.say":
+					span.log({"event" : "room.say"});
+					if( !this.currentRoom ){
+						span.log({"event": "no current room"});
+						this._send({action: "client.error", message: "not in a room"}, span);
+						return;
+					}
+					const what = message.what;
+					await this.currentRoom.broadcastChat(this, what, span);
+					break;
 				case "rooms.exit":
-					this._roomExit(message,span);
+					this._roomExit(message,span, onChangeRoom);
 					break;
 				case "chat.whisper":
 					const {to, message: msg} = message;
@@ -157,15 +214,14 @@ class MUCServiceConnection {
 		this.socket.send(JSON.stringify(msg));
 	}
 
-	async _roomExit(message,span){
-		span.log({"event" : "rooms.exit", message, currentRoom: this.currentRoom});
+	async _roomExit(message,span, onRoomChange){
+		span.log({"event" : "rooms.exit", message, currentRoom: this.currentRoom.id});
 		const {direction} = message;
-		const {exits} = await this.coordinator.rooms.load(this.currentRoom, span);
+		const {exits} = this.currentRoom;
 		const newRoom = exits[direction];
 		if( newRoom !== undefined ){
-			span.log({"event" : "rooms.moved", from: this.currentRoom, to: newRoom});
-			this.currentRoom = newRoom;
-			this._send({action: "room.current", room: newRoom}, span);
+			span.log({"event" : "rooms.moved", from: this.currentRoom.id, to: newRoom});
+			await onRoomChange(newRoom, span);
 			this._send({action: "room.exit", success: true, room: newRoom}, span);
 		} else {
 			span.log({"event" : "failed", from: this.currentRoom, direction: direction});

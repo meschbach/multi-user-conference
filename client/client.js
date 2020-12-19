@@ -9,6 +9,10 @@ const Chat = {
 	Whisper: "chat.whisper"
 }
 
+const RoomEvents = {
+	ChatBroadcast: Symbol("room.chat.broadcast")
+}
+
 const Connection = {
 	OnChange: Symbol("connection.change"),
 	Disconnected: Symbol("disconnected"),
@@ -129,6 +133,9 @@ class MultiUserConferenceClient extends EventEmitter {
 					this.currentRoom = message.room;
 					this.emit("room.current", message);
 					break;
+				case "room.chat.broadcast":
+					this.emit(RoomEvents.ChatBroadcast, {what: message.what, span: span});
+					break;
 				default:
 					throw new Error("no handler for message type: " + message.action);
 			}
@@ -192,6 +199,12 @@ class MultiUserConferenceClient extends EventEmitter {
 		}, "muc.client.ws.exitRoom", this.tracer, span, {tags: {direction}});
 	}
 
+	async sayInRoom( what, parentSpan ){
+		return await traceOp(async (span) => {
+			this._send({action: "room.say", what}, span);
+		}, "muc.client.ws.room.say", this.tracer, parentSpan, {});
+	}
+
 	async _send(message, traceContext){
 		if( !traceContext ){ throw new Error("tracing context required"); }
 		message.trace = {}
@@ -208,5 +221,6 @@ class MultiUserConferenceClient extends EventEmitter {
 module.exports = {
 	MultiUserConferenceClient,
 	Chat,
+	RoomEvents,
 	Connection
 }
