@@ -19,8 +19,12 @@ export function PlayScreen({onEval,controller, log}){
 				<InputPanel onEvaluate={onEval}/>
 			</div>
 			<div className='frame-output'>
-				<CurrentRoomView playerState={controller}/>
-				<RenderLog log={log}/>
+				<div className='room-view'>
+					<CurrentRoomView playerState={controller}/>
+				</div>
+				<div className='game-log'>
+					<RenderLog log={log}/>
+				</div>
 			</div>
 		</div>
 	);
