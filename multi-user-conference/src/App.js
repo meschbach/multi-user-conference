@@ -74,41 +74,10 @@ function App() {
           </div>
           <div className='frame-output'>
               <CurrentRoomView playerState={controller}/>
-              <OutputPane log={log}/>
+              <RenderLog log={log}/>
           </div>
       </div>
   );
-}
-
-function OutputPane({log}){
-    const [current,setState] = useState(log.messages[0] || {});
-    const [loginError, setLoginError] = useState({show: false});
-    useEffect(() => {
-        const onUpdate = () => {
-            if( log.messages[0].to === States.PreAuth ){
-                if( log.messages[1].type === States.Error ){
-                    setLoginError({show:true, message: log.messages[1].message})
-                }
-            }
-            setState(log.messages[0]);
-        };
-        log.on("update", onUpdate);
-        return () => {
-            log.off("update", onUpdate);
-        }
-    }, [log]);
-
-    if( !current ){
-        return (<div>Loading...</div>);
-    }
-    if( current["to"] === States.PreAuth ){
-        return (<div>
-            {loginError.show && <div>{loginError.message}</div>}
-            Please enter a user name.
-        </div>);
-    }
-
-    return (<RenderLog log={log}/>);
 }
 
 export default App;
