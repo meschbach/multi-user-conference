@@ -1,4 +1,5 @@
 import React, {useState} from "react";
+import './AuthScreen.css';
 
 const States = Object.freeze({
 	Init: Symbol("init"),
@@ -27,7 +28,7 @@ export function AuthScreen({controller}){
 		});
 	};
 
-	return (<div>
+	return (<div className='auth-screen'>
 		<h3>Log In</h3>
 		<div>
 			{message && <div>{message}</div> }
