@@ -36,7 +36,7 @@ describe("Rooms", function (){
 			const registerUser = async (userName) => {
 				const client = new MultiUserConferenceClient(tracer);
 				await client.connect(address, span);
-				await client.register(userName);
+				await client.register(userName, span);
 				return client;
 			} ;
 			[person1,person2] = await parallel([

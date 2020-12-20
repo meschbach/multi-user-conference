@@ -43,7 +43,9 @@ class MultiUserConferenceClient extends EventEmitter {
 		this._updateConnection(Connection.Connecting, Connection.Disconnected);
 		const span = this.tracer.startSpan("muc.client.ws.connect", {childOf: parentSpan, tags: {url}});
 		try {
-			this.wsConnection = new WebSocketClient(url);
+			const headers = {};
+			this.tracer.inject(span, opentracing.FORMAT_HTTP_HEADERS, headers);
+			this.wsConnection = new WebSocketClient(url, ["muc/v1"],{headers});
 			this.wsConnection.on("message", (rawFrame) => {
 				const message = JSON.parse(rawFrame);
 				const parentContext = this.tracer.extract( opentracing.FORMAT_TEXT_MAP, message.trace );
@@ -146,6 +148,7 @@ class MultiUserConferenceClient extends EventEmitter {
 	}
 
 	async register(userName, parentSpan) {
+		if( !parentSpan ){ throw new Error("missing parent context"); }
 		const span = this.tracer.startSpan("muc.client.ws.register", {childOf: parentSpan});
 		try {
 			this._send({action: "log.in", userName},span);

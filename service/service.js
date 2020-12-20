@@ -25,8 +25,11 @@ class MultiUserConferenceServer {
 		const wss = new WebSocket.Server({
 			port
 		});
-		wss.on("connection", (client) => {
-			this._newClient(client);
+		wss.on("connection", (client, req) => {
+			const tracingContext = this.tracer.extract( opentracing.FORMAT_HTTP_HEADERS, req.headers );
+			traceSpan(async (span) => {
+				await this._newClient(client,span);
+			},"muc.server.ws.onConnection", {}, this.tracer, tracingContext);
 		});
 		this.serverSocket = wss;
 		await promiseEvent(wss, "listening");
@@ -39,8 +42,8 @@ class MultiUserConferenceServer {
 		this.serverSocket.close();
 	}
 
-	_newClient(clientWebSocket){
-		new MUCServiceConnection(clientWebSocket, this.coordinator, this.tracer);
+	async _newClient(clientWebSocket, span){
+		new MUCServiceConnection(clientWebSocket, this.coordinator, this.tracer, span);
 	}
 }
 
@@ -120,12 +123,12 @@ class RoomsService {
 }
 
 class MUCServiceConnection {
-	constructor(socket, coordinator, tracer) {
+	constructor(socket, coordinator, tracer, initSpan) {
 		this.tracer = tracer;
 		this.socket = socket;
 		this.coordinator = coordinator;
 		this.socket.on("message", (frame) => this._ingest(frame));
-		this._send({action:"hello", version:0}, null);
+		this._send({action:"hello", version:0}, initSpan);
 	}
 
 	async _ingest(rawFrame){
