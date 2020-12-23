@@ -60,6 +60,17 @@ describe("Rooms", function (){
 				const heard = heardEvent.what;
 				expect(heard).to.equal(said);
 			});
+
+			it("is attributed to the speaker", async function (){
+				let heardPromise = promiseEvent(person1, RoomEvents.ChatBroadcast);
+
+				const said = faker.lorem.words(5);
+				await person2.sayInRoom(said, span);
+
+				const heardEvent = await heardPromise;
+				const origin = heardEvent.from;
+				expect(origin).to.equal(person2.userName);
+			});
 		});
 	});
 });

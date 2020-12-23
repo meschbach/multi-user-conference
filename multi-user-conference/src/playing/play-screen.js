@@ -3,6 +3,7 @@ import {CurrentRoomView} from "./room-view";
 import {RenderLog} from "./event-log";
 import React from "react";
 import "./play-screen.css";
+import {ViewRoomChat} from "./chat-view";
 
 /**
  * Root for user interaction screens.
@@ -22,6 +23,7 @@ export function PlayScreen({onEval,controller, log}){
 					<InputPanel onEvaluate={onEval}/>
 				</div>
 				<CurrentRoomView playerState={controller}/>
+				<ViewRoomChat controller={controller}/>
 			</main>
 			<div className='game-log'>
 				<h4>Event Log</h4>

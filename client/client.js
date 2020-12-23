@@ -136,7 +136,7 @@ class MultiUserConferenceClient extends EventEmitter {
 					this.emit("room.current", message);
 					break;
 				case "room.chat.broadcast":
-					this.emit(RoomEvents.ChatBroadcast, {what: message.what, span: span});
+					this.emit(RoomEvents.ChatBroadcast, {what: message.what, from: message.from, span: span});
 					break;
 				default:
 					throw new Error("no handler for message type: " + message.action);
@@ -156,6 +156,7 @@ class MultiUserConferenceClient extends EventEmitter {
 			if (!loginResponse.success) {
 				throw new Error("failed to login: " + loginResponse.reason);
 			}
+			this.userName = userName;
 			this.currentRoom = loginResponse.room;
 			return loginResponse.sessionID;
 		}catch(e){

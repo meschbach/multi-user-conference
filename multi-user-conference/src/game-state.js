@@ -110,11 +110,12 @@ class ClientState extends EventEmitter {
 	}
 
 	async doAuthenticate(userName){
+		const span = new BrowserSpan();
 		try {
-			await this.client.register(userName);
+			await this.client.register(userName, span);
 			this._updateState(States.Authenticated);
 			this.isAuthenticated = true;
-			const room = await this.client.loadRoom(this.client.currentRoom, new BrowserSpan());
+			const room = await this.client.loadRoom(this.client.currentRoom, span);
 			this._updateRoom(room);
 			this._updateState(States.Online);
 			return {ok: true};

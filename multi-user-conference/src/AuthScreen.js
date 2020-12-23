@@ -1,5 +1,7 @@
-import React, {useState, useEffect} from "react";
+import React, {useState} from "react";
 import './AuthScreen.css';
+import EventEmitter from "eventemitter3";
+import {useWatchedValue} from "./junk";
 
 const States = Object.freeze({
 	Init: Symbol("init"),
@@ -7,41 +9,55 @@ const States = Object.freeze({
 	LoggedIn: Symbol("logged-in"),
 });
 
-export function AuthScreen({controller}){
-	if( !controller ) {
+const Events = Object.freeze({
+	Changed: Symbol("state.changed")
+});
+
+class Authentiactor extends EventEmitter {
+	constructor(controller) {
+		super();
+		this.controller = controller;
+		this.state = States.Init;
+	}
+
+	authenticate(alias){
+		this.updateState(States.Authenticating);
+		this.controller.doAuthenticate(alias).then((result) => {
+			if( result.ok ){
+				this.updateState(States.LoggedIn);
+			} else {
+				this.error = result.error;
+				this.updateState(States.Init);
+			}
+		}, (e) => {
+			this.error = e.toString();
+			this.updateState(States.Init);
+		});
+	}
+
+	updateState(state) {
+		this.state = state;
+		this.emit(Events.Changed, state);
+	}
+}
+
+export function AuthScreen({controller}) {
+	if (!controller) {
 		throw new Error("Controller null");
 	}
-	const [state,setState] = useState(States.Init);
-	const [message, setMessage] = useState(null);
-	let changeState = false; //TODO: Design pressures push the state into being extracted.
+	const [mediator] = useState(new Authentiactor(controller));
 
-	const attemptLogin = (name) => {
-		setState(States.Authenticating);
-		controller.doAuthenticate(name).then((result) => {
-			if( result.ok ){
-				if( changeState) { setState(States.LoggedIn); }
-			} else {
-				if( changeState ){
-					setMessage(result.error);
-					setState(States.Init);
-				}
-			}
-		}, (error) => {
-			if( changeState ){
-				setState(States.Init);
-			}
-		});
-	};
+	return (<AuthenticationView mediator={mediator} attemptLogin={(alias) => mediator.authenticate(alias)}/>);
+}
 
-	useEffect(() =>{
-		changeState = true;
-		return () => { changeState = false; }
-	})
+function AuthenticationView({mediator, attemptLogin}){
+	const state = useWatchedValue(mediator, Events.Changed, (m) => m.state);
+	const error = useWatchedValue(mediator, Events.Changed, (m) => m.error);
 
 	return (<div className='auth-screen'>
 		<h3>Log In</h3>
 		<div>
-			{message && <div>{message}</div> }
+			{error && <div>{error}</div>}
 			{state === States.Init && <InputPrompt onTry={attemptLogin}/>}
 			{state === States.Authenticating && <div>Authenticating</div>}
 			{state === States.LoggedIn && <div>Authenticated</div>}

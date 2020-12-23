@@ -84,12 +84,11 @@ class LoadedRoom extends EventEmitter{
 	}
 
 	async broadcastChat(client, what, span){
-		const userName = client.userName;
-		if( !userName ){
+		if( !client.userName ){
 			throw new Error("client has not authenticated");
 		}
 		this.emit(RoomEvents.ChatBroadcast, {
-			from: userName,
+			from: client,
 			what,
 			room: this,
 			span
@@ -214,6 +213,7 @@ class MUCServiceConnection {
 		if(!traceContext === undefined){ throw new Error("no trace context"); }
 		msg.trace = {};
 		this.tracer.inject(traceContext, opentracing.FORMAT_TEXT_MAP, msg.trace);
+		traceContext.log({event: "muc.server.send", to: this.userName, message:msg});
 		this.socket.send(JSON.stringify(msg));
 	}
 

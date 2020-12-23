@@ -34,19 +34,27 @@ describe("Multi-User Conference", function (){
 
 	describe("Given a new user", function (){
 		describe("When that user successfully registers", function (){
+			let client, userName;
+			beforeEach(async function () {
+				userName = faker.internet.email();
+
+				client = new MultiUserConferenceClient(tracer);
+				await client.connect(address, span);
+				await client.register(userName, span);
+			});
+			afterEach(async  function () {
+				if( client) { client.end(); }
+			});
+
+			it( "retains the user name on the client object", async function () {
+				expect(client.userName).to.deep.equal(userName);
+			});
+
 			it("Then the user can whisper to themselves", async function (){
-				const client = new MultiUserConferenceClient(tracer);
-				try {
-					await client.connect(address, span);
-					const name = faker.internet.email();
-					await client.register(name, span);
-					const words = faker.random.words(5);
-					const received = promiseEvent(client, Chat.Whisper);
-					await client.whisper(name, words, span);
-					expect((await received).message).to.eq(words);
-				}finally {
-					client.end();
-				}
+				const words = faker.random.words(5);
+				const received = promiseEvent(client, Chat.Whisper);
+				await client.whisper(userName, words, span);
+				expect((await received).message).to.eq(words);
 			});
 		});
 	});

@@ -5,6 +5,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
+    "eventemitter3": "^4.0.7",
     "junk-bucket": "^1.6.0",
     "muc-common": "../common",
     "opentracing": "^0.14.5",
