@@ -18,7 +18,7 @@ export function ViewRoomChat({controller}){
 			controller.client.off(RoomEvents.ChatBroadcast, onRoomMessage);
 			controller.off(States.NewRoom, onNewRoom);
 		}
-	}, [controller]);
+	}, [controller, messages]);
 
 	return (<ul>
 		{messages.map((m, index) => <li key={index}>{m.from}: {m.what}</li>)}
