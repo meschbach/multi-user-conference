@@ -36,14 +36,16 @@ describe("Rooms", function (){
 			await client.connect(address, span);
 		});
 		afterEach(function (){
-			client.end();
+			if(client) {
+				client.end();
+			}
 		});
 
 		describe("When the user logs in", function (){
 			let userName;
 			beforeEach(async function (){
 				userName = faker.internet.userName();
-				await client.register(userName, span);
+				await client.register(userName, faker.internet.password(), span);
 			});
 
 			it("Notifies the user which room they are in", async function (){

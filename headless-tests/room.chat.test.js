@@ -36,7 +36,7 @@ describe("Rooms", function (){
 			const registerUser = async (userName) => {
 				const client = new MultiUserConferenceClient(tracer);
 				await client.connect(address, span);
-				await client.register(userName, span);
+				await client.register(userName, faker.internet.password(), span);
 				return client;
 			} ;
 			[person1,person2] = await parallel([
@@ -45,8 +45,8 @@ describe("Rooms", function (){
 			]);
 		});
 		afterEach(function (){
-			person1.end();
-			person2.end();
+			if(person1) { person1.end(); }
+			if( person2 ){ person2.end(); }
 		});
 
 		describe("When a user says something", function (){

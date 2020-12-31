@@ -9,6 +9,7 @@
     "chai": "^4.2.0",
     "eventemitter3": "^4.0.7",
     "express": "^4.17.1",
+    "http-proxy-middleware": "^1.0.6",
     "jaeger-client": "^3.18.1",
     "junk-bucket": "^1.6.0",
     "mocha": "^8.2.1",

@@ -6,9 +6,11 @@ import {AuthScreen} from "./AuthScreen";
 import {OutputObserver} from "./output-observer";
 import {PlayScreen} from "./playing/play-screen";
 import {useWatchedValue} from "./junk";
+import {setupTracing} from "./tracing";
 
-const controller = newGameState();
-const log = new OutputObserver();
+const tracer = setupTracing();
+const controller = newGameState(tracer);
+const log = new OutputObserver(tracer);
 log.watch(controller);
 
 function App() {

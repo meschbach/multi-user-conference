@@ -35,7 +35,7 @@ function RoomView({room}){
 		<p>{description}</p>
 		<div>
 			<h4>Exits</h4>
-			<p>{exits.map(exit => <span key={exit}>{exit}</span>)}</p>
+			<p>{Object.keys(exits).map(exit => <span key={exit}>{exit}</span>)}</p>
 		</div>
 	</div>)
 }

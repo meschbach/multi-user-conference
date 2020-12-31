@@ -20,6 +20,11 @@ const Connection = {
 	Connected: Symbol("connected")
 };
 
+const DisconnectReasons = {
+	AnotherLocation: Symbol("disconnect.another-location"),
+	NotAuthenticated: Symbol("disconnect.not-authenticated")
+}
+
 class MultiUserConferenceClient extends EventEmitter {
 	constructor(tracer) {
 		super();
@@ -40,6 +45,7 @@ class MultiUserConferenceClient extends EventEmitter {
 		if( this.wsConnection ){
 			throw Error("Already connected");
 		}
+		if( !parentSpan ){ throw new Error("parent span required"); }
 		this._updateConnection(Connection.Connecting, Connection.Disconnected);
 		const span = this.tracer.startSpan("muc.client.ws.connect", {childOf: parentSpan, tags: {url}});
 		try {
@@ -76,7 +82,9 @@ class MultiUserConferenceClient extends EventEmitter {
 		this._updateConnection(Connection.Connecting, Connection.Disconnected);
 		const span = this.tracer.startSpan("muc.client.ws.connect", {childOf: parentSpan, tags: {url}});
 		try {
-			this.wsConnection = new WebSocketClient(url);
+			const headers = {};
+			this.tracer.inject(span, opentracing.FORMAT_HTTP_HEADERS, headers);
+			this.wsConnection = new WebSocketClient(url + "?uber-trace-id="+headers["uber-trace-id"]);
 			this.wsConnection.addEventListener("message", (event) => {
 				const message = JSON.parse(event.data);
 				const parentContext = this.tracer.extract( opentracing.FORMAT_TEXT_MAP, message.trace );
@@ -117,7 +125,7 @@ class MultiUserConferenceClient extends EventEmitter {
 					this.emit("connected");
 					break;
 				case "log.in":
-					this.emit("log.in", message);
+					this._onLogin(message,span);
 					break;
 				case "chat.whisper":
 					this.emit(Chat.Whisper, message);
@@ -138,6 +146,9 @@ class MultiUserConferenceClient extends EventEmitter {
 				case "room.chat.broadcast":
 					this.emit(RoomEvents.ChatBroadcast, {what: message.what, from: message.from, span: span});
 					break;
+				case "connection.disconnect":
+					this._onDisconnect(message, span);
+					break;
 				default:
 					throw new Error("no handler for message type: " + message.action);
 			}
@@ -147,16 +158,40 @@ class MultiUserConferenceClient extends EventEmitter {
 		}
 	}
 
-	async register(userName, parentSpan) {
+	async login( alias, secret, parentSpan ){
+		if( !parentSpan ){ throw new Error("missing parent context"); }
+		return await traceOp(async (span) => {
+			const responsePromise = promiseEventWithin(this, "log.in", 1 * 1000);
+			span.log({event: "logging in", alias});
+			this._send({action: "user.login", sharedSecret: {alias, secret}}, span);
+			const {response} = await  responsePromise;
+			const {success, reason, session} = response;
+			span.log({event: "response received", success, reason});
+			if( success ){
+				return {ok:success, session};
+			} else {
+				return {ok:success, reason};
+			}
+		}, "muc.client.ws.user.login", this.tracer, parentSpan, {alias});
+	}
+
+	_onLogin( message, span ){
+		span.log({event:"muc.client._onLogin", message});
+		this.emit("log.in", {response:message, span});
+	}
+
+	async register(alias, secret, parentSpan) {
 		if( !parentSpan ){ throw new Error("missing parent context"); }
 		const span = this.tracer.startSpan("muc.client.ws.register", {childOf: parentSpan});
 		try {
-			this._send({action: "log.in", userName},span);
-			const loginResponse = await promiseEventWithin(this, "log.in", 1 * 1000);
+			span.log({event: "reigstering"});
+			this._send({action: "user.register", sharedSecret: {alias,secret} },span);
+			const {response:loginResponse} = await promiseEventWithin(this, "log.in", 1 * 1000);
+			span.log({event: "response received", loginResponse});
 			if (!loginResponse.success) {
 				throw new Error("failed to login: " + loginResponse.reason);
 			}
-			this.userName = userName;
+			this.userName = alias;
 			this.currentRoom = loginResponse.room;
 			return loginResponse.sessionID;
 		}catch(e){
@@ -182,11 +217,17 @@ class MultiUserConferenceClient extends EventEmitter {
 	}
 
 	async loadRoom(id, parent){
+		parent.log({event: "muc.client.loadRoom", room: id});
+		if( id === undefined || id === null ){
+			parent.setTag("error", true);
+			parent.log({event: "muc.client.loadRoom-no-id"});
+			throw new Error("Room ID required");
+		}
 		return await traceOp(async (span) => {
 			this._send({action: "rooms.describe", room:id}, span);
 			const op = await promiseEventWithin(this, "room.details", 1 * 1000);
 			if (!op.success) {
-				throw new Error("failed to whisper: " + op.reason);
+				throw new Error("failed to describe room: " + op.reason);
 			}
 			return op.room;
 		},"muc.client.ws.loadRoom", this.tracer, parent, {tags: {id}});
@@ -220,11 +261,21 @@ class MultiUserConferenceClient extends EventEmitter {
 		this.wsConnection.end();
 		this.wsConnection.close();
 	}
+
+	_onDisconnect(message,span){
+		const reasoningDeserializer = {
+			"login": DisconnectReasons.AnotherLocation,
+			"not-authenticated": DisconnectReasons.NotAuthenticated
+		};
+		const interalizedReason = reasoningDeserializer[message.reason] || message.reason;
+		this.emit(Connection.Disconnected, {reason: interalizedReason, span});
+	}
 }
 
 module.exports = {
 	MultiUserConferenceClient,
 	Chat,
 	RoomEvents,
+	DisconnectReasons,
 	Connection
 }

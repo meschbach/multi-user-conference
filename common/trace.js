@@ -12,6 +12,7 @@ async function traceOp(fn, name, tracer, parent, options = {}){
 		return await fn(span);
 	}catch (e){
 		traceError(span,e);
+		throw e;
 	}finally {
 		span.finish();
 	}

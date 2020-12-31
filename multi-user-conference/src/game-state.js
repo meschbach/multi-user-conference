@@ -1,22 +1,6 @@
 import {MultiUserConferenceClient} from "muc-client/client";
 import EventEmitter from "eventemitter3";
 
-class BrowserSpan {
-	log() {}
-	setTag(name,value){}
-	finish() {
-
-	}
-}
-
-function newBrowserTracer(){
-	return {
-		startSpan: () => new BrowserSpan(),
-		extract: () => new BrowserSpan(),
-		inject: () => {}
-	};
-}
-
 export const States = {
 	//Events
 	OnChange: Symbol("muc.spa.on-change"),
@@ -35,7 +19,12 @@ export const States = {
 class ClientState extends EventEmitter {
 	constructor(tracer) {
 		super();
+		this.tracer = tracer;
 		this.client = new MultiUserConferenceClient(tracer);
+		this.client.on("room.current", ({room}) => {
+			console.log("Room changed", room);
+			this._updateRoom(room);
+		});
 		this.state = States.Initial;
 		this.output = [];
 		this.isAuthenticated = false;
@@ -47,10 +36,10 @@ class ClientState extends EventEmitter {
 		this.emit(States.OnChange, {source:this, from: oldState, to: state});
 	}
 
-	digest() {
+	digest(parentSpan) {
 		switch (this.state){
 			case States.Initial:
-				this.client.connectFromBrowser("ws://localhost:9400", null, WebSocket).then((result) => {
+				this.client.connectFromBrowser("ws://localhost:9400", parentSpan, WebSocket).then((result) => {
 					this._updateState(States.PreAuth);
 				}, (e) => {
 					console.error(e);
@@ -86,7 +75,7 @@ class ClientState extends EventEmitter {
 	}
 
 	async _interpretCommand(input){
-		const span = new BrowserSpan();
+		const span = this.tracer.startSpan("game-state._interpretCommand");
 		const tokens = input.split(" ");
 		if( tokens.length === 0 ){ return; }
 		switch (tokens[0]){
@@ -105,18 +94,45 @@ class ClientState extends EventEmitter {
 	}
 
 	_updateRoom(room){
+		console.log("Current room", room);
 		this.currentRoom = room;
 		this.emit(States.NewRoom, room);
 	}
 
-	async doAuthenticate(userName){
-		const span = new BrowserSpan();
+	async doAuthenticate(alias,secret, parentSpan){
+		const span = this.tracer.startSpan("game-state.doAuthenticate", {childOf: parentSpan});
 		try {
-			await this.client.register(userName, span);
+			const result = await this.client.login(alias, secret, span);
+			const {ok,session, reason} = result;
+			if (!ok){
+				this.isAuthenticated = false;
+				span.log({event: "failed-auth", error: reason});
+				this.emit(States.Error, {source:this, message: reason});
+				this._updateState(States.PreAuth);
+				return {ok: false, error:reason};
+			}
+
 			this._updateState(States.Authenticated);
 			this.isAuthenticated = true;
-			const room = await this.client.loadRoom(this.client.currentRoom, span);
-			this._updateRoom(room);
+			this._updateState(States.Online);
+			return {ok: true};
+		}catch(e){
+			this.isAuthenticated = false;
+			this.emit(States.Error, {source:this, message: e.message});
+			this._updateState(States.PreAuth);
+			span.log({event: "error", message: e.message});
+			return {ok: false, error: e.message};
+		}finally {
+			span.finish();
+		}
+	}
+
+	async doRegister( alias, secret ){
+		const span = this.tracer.startSpan("game-state.doRegister");
+		try {
+			const session = await this.client.register(alias, secret, span);
+			this._updateState(States.Authenticated);
+			this.isAuthenticated = true;
 			this._updateState(States.Online);
 			return {ok: true};
 		}catch(e){
@@ -128,7 +144,6 @@ class ClientState extends EventEmitter {
 	}
 }
 
-export function newGameState(){
-	const tracer = newBrowserTracer();
+export function newGameState(tracer){
 	return new ClientState(tracer);
 }
