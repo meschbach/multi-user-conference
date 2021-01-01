@@ -159,7 +159,8 @@ class MUCServiceConnection {
 		const tracingContext = this.tracer.extract( opentracing.FORMAT_TEXT_MAP, message.trace );
 		const span = this.tracer.startSpan("muc.server.ws:" + message.action, {childOf: tracingContext});
 		try {
-			switch (message.action) {
+			const action = message.action;
+			switch (action) {
 				case "user.register":
 					await this._register(message, span, onChangeRoom);
 					break;
@@ -186,7 +187,7 @@ class MUCServiceConnection {
 					await this._chatWhisper(message,span);
 					break;
 				default:
-					console.warn("Unknown client action: " + message.action);
+					this._send({action:"client.error", error: "requested action does not exist"}, span);
 			}
 		} catch (e) {
 			traceError(span,e);
