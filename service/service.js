@@ -4,17 +4,7 @@ const {traceError, opentracing} = require("./tracing");
 const EventEmitter = require("events");
 const url = require("url");
 
-async function traceSpan(fn, name, options, tracer, parent){
-	options.childOf = parent;
-	const span = tracer.startSpan(name, options);
-	try {
-		return await fn(span);
-	}catch (e){
-		traceError(span,e);
-	}finally {
-		span.finish();
-	}
-}
+const {traceOp} = require("../common/trace");
 
 class MultiUserConferenceServer {
 	constructor(tracer) {
@@ -38,9 +28,9 @@ class MultiUserConferenceServer {
 			} else {
 				tracingContext = this.tracer.extract( opentracing.FORMAT_HTTP_HEADERS, req.headers );
 			}
-			traceSpan(async (span) => {
+			traceOp(async (span) => {
 				await this._newClient(client,span);
-			},"muc.server.ws.onConnection", {}, this.tracer, tracingContext);
+			},"muc.server.ws.onConnection", this.tracer, tracingContext, {});
 		});
 		this.serverSocket = wss;
 		await promiseEvent(wss, "listening");
@@ -152,14 +142,14 @@ class RoomsService {
 		if( !parentSpan ){
 			throw new Error("Context expected");
 		}
-		return await traceSpan(async (span) => {
+		return await traceOp(async (span) => {
 			if( id === undefined ){ throw new Error("bad id"); }
 			const room = this.rooms[id];
 			if( !room ){
 				throw new Error("No such room " + id);
 			}
 			return room;
-		}, "muc.service.rooms.load", {tags: {roomID: id}}, this.tracer, parentSpan);
+		}, "muc.service.rooms.load", this.tracer, parentSpan, {tags: {roomID: id}});
 	}
 }
 
