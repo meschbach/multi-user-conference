@@ -9,6 +9,8 @@ const {traceOp} = require("../common/trace");
 const {RoomsService,RoomEvents} = require("./rooms");
 const {serializeRoomDescription} = require("./room-serializers");
 
+const {setupWebsocketV1} = require("./ws-v1");
+
 class MultiUserConferenceServer {
 	constructor(tracer) {
 		this.tracer = tracer;
@@ -132,6 +134,7 @@ class MUCServiceConnection {
 			}
 		});
 		this._send({action:"hello", version:0}, initSpan);
+		this._incomingMessages = setupWebsocketV1();
 	}
 
 	async _ingest(rawFrame){
@@ -187,7 +190,9 @@ class MUCServiceConnection {
 					await this._chatWhisper(message,span);
 					break;
 				default:
-					this._send({action:"client.error", error: "requested action does not exist"}, span);
+					await this._incomingMessages.dispatch(action, message, {
+						send: (message) => this._send(message,span)
+					});
 			}
 		} catch (e) {
 			traceError(span,e);
