@@ -5,6 +5,7 @@ const EventEmitter = require("events");
 const url = require("url");
 
 const {traceOp} = require("../common/trace");
+const {serializeRoomDescription} = require("./room-serializers");
 
 class MultiUserConferenceServer {
 	constructor(tracer) {
@@ -108,8 +109,9 @@ const RoomEvents = {
 }
 
 class LoadedRoom extends EventEmitter{
-	constructor({name,description,exits}) {
+	constructor({id, name,description,exits}) {
 		super();
+		this.id = id;
 		this.name = name;
 		this.description = description;
 		this.exits = exits;
@@ -133,8 +135,8 @@ class RoomsService {
 		this.tracer = tracer;
 		this.startRoom = 0;
 		this.rooms = [
-			new LoadedRoom({name: "Foyer", description:"You are at the entrance of the conference complex", exits: {in: 1}}),
-			new LoadedRoom({name: "Lobby", description: "It's a lobby.  Peeps milling about", exits: {out: 0}})
+			new LoadedRoom({id: 0, name: "Foyer", description:"You are at the entrance of the conference complex", exits: {in: 1}}),
+			new LoadedRoom({id: 1, name: "Lobby", description: "It's a lobby.  Peeps milling about", exits: {out: 0}})
 		];
 	}
 
@@ -169,7 +171,15 @@ class MUCServiceConnection {
 		this.tracer = tracer;
 		this.socket = socket;
 		this.coordinator = coordinator;
-		this.socket.on("message", (frame) => this._ingest(frame));
+		this.socket.on("message", (frame) => {
+			try {
+				this._ingest(frame).then(() => {}, (e) => {
+					console.error("Need to trace -- error while consuming message frame",e);
+				});
+			}catch(e){
+				console.error("Need to trace -- error while consuming message frame",e);
+			}
+		});
 		this._send({action:"hello", version:0}, initSpan);
 	}
 
@@ -191,6 +201,7 @@ class MUCServiceConnection {
 			const {name,description,exits} = this.currentRoom;
 			const serializedRoom = {name,description,exits};
 			this._send({action: "room.current", room: serializedRoom}, span);
+			return newRoom;
 		}
 
 		const message = JSON.parse(rawFrame);
@@ -205,16 +216,7 @@ class MUCServiceConnection {
 					await this._login(message, span, onChangeRoom);
 					break;
 				case "rooms.describe":
-					span.log({"event" : "describe", message});
-					const id = message.room;
-					const room = await this.coordinator.rooms.load(id, span);
-					if( room ){
-						const {name,description} = room;
-						const exits = Object.keys(room.exits);
-						this._send({action:"room.details", success:true, room: {id,name,description, exits}}, span);
-					} else {
-						this._send({action:"room.details", success:false, reason: "no such room " + id}, span);
-					}
+					await this._describeRoom(message,span);
  					break;
 				case "room.say":
 					span.log({"event" : "room.say"});
@@ -227,7 +229,7 @@ class MUCServiceConnection {
 					await this.currentRoom.broadcastChat(this, what, span);
 					break;
 				case "rooms.exit":
-					this._roomExit(message,span, onChangeRoom);
+					await this._roomExit(message,span, onChangeRoom);
 					break;
 				case "chat.whisper":
 					await this._chatWhisper(message,span);
@@ -274,11 +276,11 @@ class MUCServiceConnection {
 		span.log({"event" : "rooms.exit", message, currentRoom: this.currentRoom.id});
 		const {direction} = message;
 		const {exits} = this.currentRoom;
-		const newRoom = exits[direction];
-		if( newRoom !== undefined ){
-			span.log({"event" : "rooms.moved", from: this.currentRoom.id, to: newRoom});
-			await onRoomChange(newRoom, span);
-			this._send({action: "room.exit", success: true, room: newRoom}, span);
+		const newRoomID = exits[direction];
+		if( newRoomID !== undefined ){
+			span.log({"event" : "rooms.moved", from: this.currentRoom.id, to: newRoomID});
+			const newRoom = await onRoomChange(newRoomID, span);
+			this._send({action: "room.exit", success: true, room: serializeRoomDescription(newRoom)}, span);
 		} else {
 			span.log({"event" : "failed", from: this.currentRoom, direction: direction});
 			this._send({action: "room.exit", success: false, reason: "no such exit: " + direction}, span);
@@ -331,6 +333,21 @@ class MUCServiceConnection {
 
 		this._send({action: "connection.disconnect", reason: serializedForm}, span);
 		this.socket.close();
+	}
+
+	async _describeRoom(message,span){
+		span.log({"event" : "describe", message});
+		const id = message.room;
+		if( !Number.isInteger(id) ){
+			span.log({"event":"error", id});
+			this._send({action:"room.details", success:false, reason: "bad id"}, span);
+		}
+		const room = await this.coordinator.rooms.load(id, span);
+		if( room ){
+			this._send({action:"room.details", success:true, room: serializeRoomDescription(room)}, span);
+		} else {
+			this._send({action:"room.details", success:false, reason: "no such room " + id}, span);
+		}
 	}
 }
 

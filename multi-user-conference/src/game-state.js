@@ -1,5 +1,6 @@
 import {MultiUserConferenceClient} from "muc-client/client";
 import EventEmitter from "eventemitter3";
+import {traceError} from "muc-common/trace";
 
 export const States = {
 	//Events
@@ -76,20 +77,25 @@ class ClientState extends EventEmitter {
 
 	async _interpretCommand(input){
 		const span = this.tracer.startSpan("game-state._interpretCommand");
-		const tokens = input.split(" ");
-		if( tokens.length === 0 ){ return; }
-		switch (tokens[0]){
-			case "go":
-				const roomID = await this.client.exitRoom(tokens[1], span);
-				const room = await this.client.loadRoom(roomID, span);
-				this._updateRoom(room);
-				break;
-			case "say":
-				const whatToSay = input.substr(tokens[0].length + 1);
-				await this.client.sayInRoom( whatToSay, span);
-				break;
-			default:
-				this.emit(States.Error, {source:this, message: "Unknown command: "+ tokens[0]});
+		try {
+			const tokens = input.split(" ");
+			if( tokens.length === 0 ){ return; }
+			switch (tokens[0]){
+				case "go":
+					await this.client.exitRoom(tokens[1], span);
+					break;
+				case "say":
+					const whatToSay = input.substr(tokens[0].length + 1);
+					await this.client.sayInRoom( whatToSay, span);
+					break;
+				default:
+					this.emit(States.Error, {source:this, message: "Unknown command: "+ tokens[0]});
+			}
+		}catch(e){
+			traceError(span,e);
+			throw e;
+		}finally {
+			span.finish();
 		}
 	}
 

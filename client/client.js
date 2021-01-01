@@ -223,6 +223,11 @@ class MultiUserConferenceClient extends EventEmitter {
 			parent.log({event: "muc.client.loadRoom-no-id"});
 			throw new Error("Room ID required");
 		}
+		if( !Number.isInteger(id)){
+			parent.setTag("error", true);
+			parent.log({event: "error", reason: "bad id"});
+			throw new Error("Valid room ID required");
+		}
 		return await traceOp(async (span) => {
 			this._send({action: "rooms.describe", room:id}, span);
 			const op = await promiseEventWithin(this, "room.details", 1 * 1000);
