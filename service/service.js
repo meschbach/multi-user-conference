@@ -9,6 +9,7 @@ const {traceOp} = require("../common/trace");
 const {RoomsService,RoomEvents} = require("./rooms");
 const {serializeRoomDescription} = require("./room-serializers");
 
+const {Disconnect} = require("./common");
 const {setupWebsocketV1} = require("./ws-v1");
 
 class MultiUserConferenceServer {
@@ -108,17 +109,6 @@ class MUCCoordinator {
 	}
 }
 
-const Disconnect = {
-	/**
-	 * User logged in from a different browser or location
-	 */
-	Login: Symbol("login"),
-	/**
-	 * Client attempted to perform an action which requires an authenticated user
-	 */
-	NotAuthenticated: Symbol("not-authenticated")
-}
-
 class MUCServiceConnection {
 	constructor(socket, coordinator, tracer, initSpan) {
 		this.tracer = tracer;
@@ -186,34 +176,29 @@ class MUCServiceConnection {
 				case "rooms.exit":
 					await this._roomExit(message,span, onChangeRoom);
 					break;
-				case "chat.whisper":
-					await this._chatWhisper(message,span);
-					break;
 				default:
-					await this._incomingMessages.dispatch(action, message, {
-						send: (message) => this._send(message,span)
+					const postActions = [];
+					span.log({event: "pre-handler", action});
+					const result = await this._incomingMessages.dispatch(action, message, {
+						userName: this.userName,
+						coordinator: this.coordinator,
+						send: (message) => this._send(message,span),
+						forceDisconnect: (reason) => postActions.push(() => this.forceDisconnect(reason,span)),
+
+						//Deprecated
+						span
 					});
+					span.log({event: "handler-complete", result});
+					if( result ){
+						this._send(result,span);
+					}
+					postActions.forEach((action) => action());
 			}
 		} catch (e) {
 			traceError(span,e);
 			console.error("Failed to process message", e);
 		} finally {
 			span.finish();
-		}
-	}
-
-	async _chatWhisper(message, span) {
-		if( this.userName ){
-			const {to, message: msg} = message;
-			const user = this.coordinator.findUser(to);
-			if( !user ){
-				this._send({action: "chat.whisper.sent", success: false, reason: "user not online"}, span);
-				return;
-			}
-			user.whispered(this.userName, msg, span);
-			this._send({action: "chat.whisper.sent", success: true}, span);
-		} else {
-			await this.forceDisconnect(Disconnect.NotAuthenticated, span);
 		}
 	}
 
