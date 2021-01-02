@@ -5,21 +5,37 @@ import { ConsoleSpanExporter, SimpleSpanProcessor } from '@opentelemetry/tracing
 import { WebTracerProvider } from '@opentelemetry/web';
 import { ZipkinExporter } from '@opentelemetry/exporter-zipkin';
 
-export function setupTracing(){
-	const zipkinExporter = new ZipkinExporter({
-		url: "http://jaeger.platform-jaeger.svc.workshop.k8s:9411/api/v2/spans",
-		serviceName: "muc.react",
-		headers: {}
-	});
+export async function setupTracing(){
 
 	const provider = new WebTracerProvider();
-	provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
-	provider.addSpanProcessor(new SimpleSpanProcessor(zipkinExporter));
-
+	await loadTracerConfiguration(provider);
 	provider.register();
 
 	const openTelemetryTracer = provider.getTracer('muc.react');
 	return newBrowserTracer(openTelemetryTracer);
+}
+
+async function loadTracerConfiguration(provider){
+	const configResponse = await fetch("/config/config.json");
+	const {tracing} = await configResponse.json();
+	if( !tracing ){
+		console.log("No tracing in config, skipping");
+		return;
+	}
+
+	if( tracing.console ){
+		provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
+	}
+
+	const {serviceName, zipkin} = tracing;
+	if( zipkin && serviceName ){
+		const zipkinExporter = new ZipkinExporter({
+			url: zipkin,
+			serviceName,
+			headers: {}
+		});
+		provider.addSpanProcessor(new SimpleSpanProcessor(zipkinExporter));
+	}
 }
 
 class BrowserSpan {

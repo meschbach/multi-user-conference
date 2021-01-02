@@ -1,0 +1,8 @@
+{
+  "edge": "ws://localhost:9400",
+  "tracing": {
+    "serviceName": "muc-react",
+    "console": false,
+    "zipkin": "http://jaeger.platform-jaeger.svc.workshop.k8s:9411/api/v2/spans"
+  }
+}

@@ -40,11 +40,9 @@ class ClientState extends EventEmitter {
 	digest(parentSpan) {
 		switch (this.state){
 			case States.Initial:
-				this.client.connectFromBrowser("ws://localhost:9400", parentSpan, WebSocket).then((result) => {
-					this._updateState(States.PreAuth);
-				}, (e) => {
-					console.error(e);
-				});
+				this._setupConnection(parentSpan).then(() => {}, (e) => {
+					console.error(e)
+				} );
 				this._updateState(States.Starting);
 				break;
 			case States.Authenticated:
@@ -56,6 +54,13 @@ class ClientState extends EventEmitter {
 			default:
 				throw new Error("shouldn't get here --> " + this.state.toString());
 		}
+	}
+
+	async _setupConnection(parentSpan){
+		const configResponse = await fetch("/config/config.json");
+		const config = await configResponse.json();
+		await this.client.connectFromBrowser(config.edge, parentSpan, WebSocket);
+		this._updateState(States.PreAuth);
 	}
 
 	input(value){
