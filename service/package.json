@@ -1,6 +1,6 @@
 {
   "name": "multi-user-conference-service",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.js",
   "author": "Mark Eschbach",
   "license": "MIT",
@@ -13,7 +13,7 @@
     "jaeger-client": "^3.18.1",
     "junk-bucket": "^1.6.0",
     "mocha": "^8.2.1",
-    "ws": "^7.3.1"
+    "ws": "7.4.2"
   },
   "scripts": {
     "start": "node service.js",

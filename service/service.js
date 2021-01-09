@@ -18,8 +18,9 @@ class MultiUserConferenceServer {
 		this.coordinator = new MUCCoordinator(tracer);
 	}
 
-	async startInProcess(port = 0) {
+	async startInProcess(port = 0, host) {
 		const wss = new WebSocket.Server({
+			host,
 			port
 		});
 		wss.on("connection", (client, req) => {
@@ -41,7 +42,7 @@ class MultiUserConferenceServer {
 		this.serverSocket = wss;
 		await promiseEvent(wss, "listening");
 		const actualPort = wss.address().port;
-		return "http://localhost:" + actualPort;
+		return "http://"+host+":" + actualPort;
 	}
 
 	end() {

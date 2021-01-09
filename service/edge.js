@@ -12,7 +12,7 @@ main(async (logger) => {
 
 	try {
 		const service = new MultiUserConferenceServer(rootContext.opentracing.tracer);
-		const address = await service.startInProcess(9400);
+		const address = await service.startInProcess(9400, "0.0.0.0");
 		rootContext.logger.info("Started Multiuser Conference", address);
 		await doneSignal.promised;
 	}catch (e) {
