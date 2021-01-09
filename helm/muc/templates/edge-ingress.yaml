@@ -1,0 +1,21 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: {{ include "muc.fullname" . }}-edge
+  labels:
+    app.kubernetes.io/component: edge
+    {{- include "muc.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/websocket-services: {{ include "muc.fullname" . }}-edge
+    nginx.org/websocket-services: {{ include "muc.fullname" . }}-edge
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.edge.host }}
+      http:
+        paths:
+          - backend:
+              serviceName: {{ include "muc.fullname" . }}-edge
+              servicePort: {{ .Values.service.port }}
+{{- end }}
