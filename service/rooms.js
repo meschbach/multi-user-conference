@@ -35,7 +35,9 @@ class RoomsService {
 		this.startRoom = 0;
 		this.rooms = [
 			new LoadedRoom({id: 0, name: "Foyer", description:"You are at the entrance of the conference complex", exits: {in: 1}}),
-			new LoadedRoom({id: 1, name: "Lobby", description: "It's a lobby.  Peeps milling about", exits: {out: 0}})
+			new LoadedRoom({id: 1, name: "Lobby", description: "It's a lobby.  Peeps milling about.  There are doors to the left and right.  Or go out to the Foyer", exits: {left: 2, right: 3}}),
+			new LoadedRoom({id: 1, name: "Atrium", description: "There are plants. To the left is a door and right.", exits: {right: 3, left: 1 }}),
+			new LoadedRoom({id: 1, name: "Lounge", description: "A place to sit and relax.  A drink in your hand while you chillax on a couch would not be out of place.  You can right.", exits: {right: 1}}),
 		];
 	}
 

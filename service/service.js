@@ -18,7 +18,7 @@ class MultiUserConferenceServer {
 		this.coordinator = new MUCCoordinator(tracer);
 	}
 
-	async startInProcess(port = 0, host) {
+	async startInProcess(port = 0, host = "localhost") {
 		const wss = new WebSocket.Server({
 			host,
 			port

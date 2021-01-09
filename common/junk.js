@@ -12,7 +12,7 @@ function promiseEventWithin(from, name, withinMs) {
 	let timeout = setTimeout(() => {
 		if( done ){ return; }
 		done = true;
-		future.reject(new Error("timeout withing for " + name.toString()));
+		future.reject(new Error("timeout waiting for " + name.toString()));
 		from.off(name, handler);
 	}, withinMs);
 	from.once(name, handler);

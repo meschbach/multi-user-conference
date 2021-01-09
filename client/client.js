@@ -66,7 +66,11 @@ class MultiUserConferenceClient extends EventEmitter {
 					messageSpan.finish();
 				}
 			});
-			await promiseEventWithin(this.wsConnection, "open", 1 * 1000);
+			try {
+				await promiseEventWithin(this.wsConnection, "open", 1 * 1000);
+			}catch(e){
+				throw new Error("Failed to connect to server " + url + " because " + e.toString());
+			}
 			this._updateConnection(Connection.Connected, Connection.Connecting);
 			span.log({event: "socket open"});
 		}finally {
